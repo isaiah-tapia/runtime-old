@@ -12,7 +12,7 @@ from gitm.optimizer.history import (
 )
 
 
-def _result(name, *, kept=True, significant=True, delta=0.05):
+def _result(name, *, kept=True, significant=True, delta=0.05, threshold=0.02):
     return {
         "intervention_name": name,
         "summary": f"{name} summary",
@@ -27,6 +27,7 @@ def _result(name, *, kept=True, significant=True, delta=0.05):
         "significant": significant,
         "kept": kept,
         "via": "hot-swap",
+        "threshold": threshold,
     }
 
 
@@ -63,6 +64,29 @@ def test_two_wins_for_the_same_lever_accumulate(tmp_path):
     assert r.mean_delta == 0.05
     assert (r.best_delta, r.worst_delta) == (0.06, 0.04)
     assert not r.conflicted
+
+
+def test_a_record_from_before_the_noise_floor_does_not_rank(tmp_path):
+    """No threshold means it was kept at >= 0. It is listed, not counted."""
+    _run(tmp_path, "run-old", [_result("kv_cache_dtype_fp8", delta=0.01, threshold=None)])
+    _run(tmp_path, "run-new", [_result("kv_cache_dtype_fp8", delta=0.06)])
+
+    h = load_history(tmp_path)
+    r = record_for(h, "kv_cache_dtype_fp8", gpu_sku="NVIDIA H100 80GB")
+
+    assert (r.attempts, r.wins) == (1, 1)
+    assert r.mean_delta == 0.06
+    assert "pre-noise-floor" in h.excluded["run-old/kv_cache_dtype_fp8"]
+
+
+def test_a_record_with_a_zero_threshold_still_counts(tmp_path):
+    """0.0 is a recorded bar (noise gate off, reps=1), not a missing one."""
+    _run(tmp_path, "run-a", [_result("kv_cache_dtype_fp8", threshold=0.0)])
+
+    r = record_for(load_history(tmp_path), "kv_cache_dtype_fp8",
+                   gpu_sku="NVIDIA H100 80GB")
+
+    assert r.attempts == 1
 
 
 def test_a_win_and_a_loss_conflict_rather_than_cancelling(tmp_path):
@@ -200,7 +224,7 @@ def _real_export(tmp_path, run_id, specs_and_abs, *, gpu_sku="NVIDIA H100 80GB")
             knob=knob, value=value, baseline_tps=100.0,
             candidate_tps=100.0 * speedup, speedup=speedup, kept=kept,
             via="hot-swap", baseline_std=1.0, candidate_std=1.0, reps=3,
-            significant=significant,
+            significant=significant, threshold=0.02,
         )
         records.append(
             build_record(spec, ab, ApplyResult(True, not kept, speedup - 1.0))
@@ -318,7 +342,7 @@ def test_no_recorded_delta_is_none_not_zero(tmp_path):
     """Same distinction record_for makes: "we have no number" and "the number was
     zero" point opposite ways, and 0.0 for both reads as a measured no-op."""
     _run(tmp_path, "run-a", [{"intervention_name": "mystery_lever",
-                              "kept": True, "significant": True}])
+                              "kept": True, "significant": True, "threshold": 0.02}])
 
     r = record_for(load_history(tmp_path), "mystery_lever", gpu_sku="NVIDIA H100 80GB")
 
@@ -330,7 +354,8 @@ def test_no_recorded_delta_is_none_not_zero(tmp_path):
 
 def test_a_measured_zero_is_not_the_same_as_no_measurement(tmp_path):
     _run(tmp_path, "run-a", [{"intervention_name": "flat_lever", "kept": True,
-                              "significant": True, "delta": 0.0, "speedup": 1.0}])
+                              "significant": True, "delta": 0.0, "speedup": 1.0,
+                              "threshold": 0.02}])
 
     r = record_for(load_history(tmp_path), "flat_lever", gpu_sku="NVIDIA H100 80GB")
 

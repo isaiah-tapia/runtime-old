@@ -264,6 +264,12 @@ def load_history(
             if bad_ab:
                 excluded[f"{run_id}/{name}"] = f"unreliable A/B: {', '.join(bad_ab)}"
                 continue
+            # Written before the keep bar was recorded: kept at ">= 0", which the
+            # noise floor showed is inside run-to-run drift. Counting it would rank
+            # a lucky A/B like a measured one, which is why runs needed --no-history.
+            if r.get("threshold") is None:
+                excluded[f"{run_id}/{name}"] = "pre-noise-floor: no threshold"
+                continue
             key = (name, sku, fp)
             a = acc.setdefault(
                 key,

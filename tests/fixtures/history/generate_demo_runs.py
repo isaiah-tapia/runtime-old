@@ -51,7 +51,7 @@ def run(run_id, gpu_sku, attempts, *, git_sha="abc1234"):
             knob=knob, value=value, baseline_tps=538.8,
             candidate_tps=538.8 * speedup, speedup=speedup, kept=kept,
             via="restart", baseline_std=4.1, candidate_std=4.4, reps=3,
-            significant=significant,
+            significant=significant, threshold=0.02,
         )
         records.append(build_record(spec, ab, ApplyResult(True, not kept, speedup - 1.0)))
     prov = Provenance(workload_id="vllm-decode", fingerprint="kimi-k2.5-mi355x",

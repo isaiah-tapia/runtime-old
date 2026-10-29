@@ -86,6 +86,21 @@ def test_a_sweep_lands_as_one_run_not_one_per_arm(tmp_path):
     assert len(doc["results"]) == 2
 
 
+def test_an_ingested_record_carries_the_bar_it_cleared(tmp_path):
+    """History drops records with no threshold as pre-noise-floor. A cluster
+    result is judged against the fixed agreement band, so it records that band,
+    and no noise floor, since none was measured."""
+    base, ep, _ = _sweep(tmp_path)
+    _ingest(tmp_path, "--baseline", str(base), "--candidate", str(ep),
+            "--gpu-sku", SKU, "--run-id", "sweep1")
+
+    doc = json.loads((tmp_path / "scratch" / "runs" / "sweep1" / "verification.json").read_text())
+    (rec,) = doc["results"]
+    assert rec["threshold"] == rec["agreement_band"] == 0.02
+    assert rec["noise_floor"] is None
+    assert not load_history(tmp_path / "scratch" / "runs", gpu_sku=SKU).excluded
+
+
 # --------------------------------------------------------------------------- #
 # ingesting twice must not count twice                                         #
 # --------------------------------------------------------------------------- #

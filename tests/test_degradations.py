@@ -382,7 +382,7 @@ def test_a_late_bad_ab_leaves_earlier_autoresearch_records_clean():
 
 def _result(name: str, degradations: list[dict]) -> dict:
     return {"intervention_name": name, "delta": 0.3, "kept": True, "significant": True,
-            "speedup": 1.3, "degradations": degradations}
+            "speedup": 1.3, "threshold": 0.02, "degradations": degradations}
 
 
 def _export(tmp_path: Path, run_id: str, results: list[dict],

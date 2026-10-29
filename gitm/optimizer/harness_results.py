@@ -558,6 +558,10 @@ def compare(
         significant=abs(delta) > agreement_band,
         kept=delta > 0 and abs(delta) > agreement_band,
         via="harness",
+        # The bar this keep cleared. A fixed band, not a measured A/A floor, so
+        # noise_floor stays None: the export's own marker for a stand-in.
+        threshold=agreement_band,
+        noise_floor=None,
         # Requests, not tokens, and goodput only when the capture reported it —
         # the two arms are refused above unless they agree on which.
         unit="goodput_requests/sec" if baseline.goodput else "requests/sec",
